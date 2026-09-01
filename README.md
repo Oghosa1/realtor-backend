@@ -1,290 +1,152 @@
-# Expert Listing Backend API (Node.js ESM + PostgreSQL)
+# ExpertListing Assessment
 
-Production-grade RESTful backend for the **Expert Listing** real estate assessment application, built with Node.js ES Modules, Express, PostgreSQL, and Zod validation.
+## 1. Overview
+This is the backend implementation for the ExpertListing take-home assessment. It provides a RESTful API built with Node.js, Express, and PostgreSQL to support the Flutter mobile client (located in a separate repository). It handles feed pagination, post creation, image uploads, and interactions like comments and likes.
 
----
+## 2. Implemented Features
+- Feed
+- Stories
+- Post creation
+- Image upload
+- Location
+- Transaction type
+- Likes
+- Comments
+- Filters (category and tag)
+- Pagination
+- Error handling
 
-## 🌟 Features & Highlights
-
-- **Relational PostgreSQL Schema**: Normalized tables for `users`, `posts`, `comments`, `likes`, and `stories` with composite keys and indexing.
-- **ES Modules (`"type": "module"`)**: Clean modern JavaScript with async/await and strict layer separation (`routes` → `controllers` → `services` → `db`).
-- **Standard JSON Envelope**: All responses adhere to the standard envelope `{ success: true, data: ... }` and `{ success: false, error: ... }`.
-- **Strict Validation**: Request bodies, queries, and route parameters validated via **Zod**.
-- **Assessment Mock Data Seed**: Includes automated migration and seed scripts pre-populating all exact Figma mockup users (Felix Okon, Maurice U, Boyd From, etc.), stories, and posts.
-
----
-
-## 🛠 Tech Stack
-
-- **Runtime**: Node.js (v20+ LTS)
-- **Framework**: Express.js 4.19.2
-- **Database**: PostgreSQL 14+ (compatible with Supabase, Neon, Render, Railway)
-- **Client**: `pg` (node-postgres connection pool)
-- **Validation**: Zod 3.23.8
-- **Logging & Security**: Morgan, CORS, Dotenv
-
----
-
-## 🏛 Database Schema (PostgreSQL)
-
-```
-       +---------------+
-       |     users     |
-       +---------------+
-       | id (UUID, PK) |<-----------+-----------------+
-       | name          |            |                 |
-       | handle        |            |                 |
-       | role          |            |                 |
-       | avatar_url    |            |                 |
-       +---------------+            |                 |
-               |                    |                 |
-               | 1:N                | 1:N             | 1:N
-               v                    |                 |
-       +---------------+            |                 |
-       |     posts     |            |                 |
-       +---------------+            |                 |
-       | id (UUID, PK) |<----+      |                 |
-       | user_id (FK)  |     |      |                 |
-       | category      |     |      |                 |
-       | tag           |     |      |                 |
-       | content       |     |      |                 |
-       | location      |     |      |                 |
-       | media_url     |     |      |                 |
-       | is_video      |     |      |                 |
-       | views_count   |     |      |                 |
-       | created_at    |     |      |                 |
-       +---------------+     |      |                 |
-               |             |      |                 |
-       +-------+-------+     |      |                 |
-       | 1:N           | 1:N |      |                 |
-       v               v     |      |                 |
-+---------------+  +---------------+  +---------------+
-|   comments    |  |     likes     |  |    stories    |
-+---------------+  +---------------+  +---------------+
-| id (UUID, PK) |  | post_id (PK)  |  | id (UUID, PK) |
-| post_id (FK)  |  | user_id (PK)  |  | user_id (FK)  |
-| user_id (FK)  |  | created_at    |  | media_url     |
-| text          |  +---------------+  | created_at    |
-| created_at    |                     +---------------+
-+---------------+
+## 3. Architecture
+```text
+Flutter App (External)
+    |
+    | REST API (JSON / Multipart)
+    v
+Backend API (Node.js / Express)
+    |
+    +---- PostgreSQL (Relational Data)
+    |
+    +---- Cloudinary (Image Storage)
 ```
 
----
+## 4. Frontend Implementation
+The frontend is a Flutter application located in a separate repository. It communicates with this backend via standard HTTP requests and is responsible for managing its own local state, UI navigation, and image selection. 
 
-## 🚀 Quick Start Guide
+## 5. Backend Implementation
+- **Framework**: Express.js using Node.js ES Modules.
+- **Routes**: Modular route handlers (`postRoutes.js`, `storyRoutes.js`).
+- **Controllers & Services**: Strict layer separation where controllers handle HTTP transport and services handle business logic and raw SQL database access.
+- **Validation**: Strict runtime validation of request bodies and query parameters using Zod.
+- **Error Handling**: Centralized error middleware catching both Zod validation errors and database exceptions, returning a standardized JSON envelope.
+- **Pagination**: Offset-based pagination executed directly in SQL.
+- **Database Access**: Direct raw SQL queries using `pg` (node-postgres) with parameterized inputs to prevent injection.
+- **Image Upload Flow**: Multer captures `multipart/form-data` in memory, which is then streamed directly to Cloudinary.
 
-### 1. Prerequisites
-- Node.js v18 or later
-- A PostgreSQL database instance (local PostgreSQL or cloud Supabase/Neon database URL)
+## 6. API Endpoints
 
-### 2. Installation & Setup
-```bash
-# Navigate to backend directory
-cd backend
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/api/posts` | Fetch paginated feed posts. Supports filtering by category/tag. |
+| POST | `/api/posts` | Create a new post. Accepts `multipart/form-data` for image uploads. |
+| POST | `/api/posts/:id/like` | Toggle the current user's like status on a post. |
+| GET | `/api/posts/:id/comments` | Retrieve chronological comments for a post. |
+| POST | `/api/posts/:id/comments` | Add a new comment to a post. |
+| GET | `/api/stories` | Retrieve a list of active stories. |
 
-# Install dependencies
-npm install
+## 7. Database Schema
+The database uses PostgreSQL with the following core tables:
 
-# Configure environment variables
-cp .env.example .env
-```
+- `users`: Stores user profiles.
+- `posts`: Stores feed content, location, transaction types (`tag`), and image URLs (`media_url`).
+  - **Relationship**: A user can create multiple posts.
+- `comments`: Stores text comments.
+  - **Relationship**: A post can have multiple comments. A user can create multiple comments.
+- `likes`: Composite join table tracking post likes.
+  - **Relationship**: A user can like multiple posts. A post can have multiple likes.
+- `stories`: Stores temporary story media.
+  - **Relationship**: A user can have multiple stories.
 
-Edit `.env` and set your `DATABASE_URL`:
-```env
-PORT=5001
-NODE_ENV=development
-DATABASE_URL=postgresql://postgres:postgres@localhost:5432/expert_listing
-CORS_ORIGIN=*
-```
+## 8. Image Upload
+Image uploads are fully handled on the backend to avoid exposing credentials on the mobile client.
+- **Selection**: The mobile app selects an image and attaches it to a `multipart/form-data` request.
+- **Upload**: The backend receives the binary using `multer` (in-memory storage).
+- **Storage Service**: The backend pipes the buffer to **Cloudinary** using `streamifier`.
+- **Database**: Cloudinary returns a secure URL, which the backend stores in the PostgreSQL `posts` table (`media_url` column).
+- **Retrieval**: The mobile app receives the URL in the API response and renders it via standard network image widgets.
 
-### 3. Run Migrations & Seed Data
-```bash
-# Create database tables and indexes
-npm run db:migrate
+## 9. Pagination
+The feed implements **offset pagination**.
+- **Parameters**: Accepts `page` and `limit` queries.
+- **Response**: Returns a `pagination` object containing `currentPage`, `totalPages`, `totalItems`, and a boolean `hasNextPage` flag for the mobile client to manage infinite scrolling.
 
-# Seed realistic Figma assessment data
-npm run db:seed
-```
+## 10. Error Handling
+- **Backend**: Uses a global error handling middleware. Zod validation failures are mapped to `400 Bad Request`. Missing resources throw custom `NotFoundError` instances mapping to `404 Not Found`. Unhandled exceptions map to `500 Internal Server Error`.
+- **API Requests**: All responses follow a strict envelope: `{ success: boolean, data?: any, error?: string }`.
 
-### 4. Start Server
-```bash
-# Development mode with auto-reload
-npm run dev
+## 11. Running Locally
 
-# Production mode
-npm start
-```
-The server will start on `http://localhost:5001`.
+### Backend Setup
+1. **Node.js**: Requires Node.js v18 or newer.
+2. **Install dependencies**: 
+   ```bash
+   npm install
+   ```
+3. **Environment**: 
+   ```bash
+   cp .env.example .env
+   ```
+   Fill in your local or remote PostgreSQL `DATABASE_URL` and Cloudinary credentials.
+4. **Database Configuration**:
+   ```bash
+   npm run db:migrate
+   npm run db:seed
+   ```
+5. **Start Server**:
+   ```bash
+   npm run dev
+   ```
 
----
+## 12. Environment Variables
+The following environment variables are required (see `.env.example`):
+- `PORT`: The port the server runs on (e.g., 5001).
+- `NODE_ENV`: Application environment (e.g., `development`).
+- `DATABASE_URL`: Full PostgreSQL connection string.
+- `CORS_ORIGIN`: Allowed CORS origins.
+- `CLOUDINARY_CLOUD_NAME`: Cloudinary account cloud name.
+- `CLOUDINARY_API_KEY`: Cloudinary API key.
+- `CLOUDINARY_API_SECRET`: Cloudinary API secret.
 
-## 📡 API Documentation
+## 13. Deployment
+- **Backend**: Can be hosted on any Node.js provider (e.g., Render, Railway, Heroku).
+- **Database**: PostgreSQL (e.g., Supabase, Neon).
+- **Image Storage**: Cloudinary.
 
-### Pagination Approach
-The `GET /posts` endpoint uses offset-based pagination. It accepts `page` and `limit` query parameters and returns a `pagination` object in the response containing `currentPage`, `totalPages`, `totalItems`, and `hasNextPage`. The results are stably ordered by `created_at DESC, id DESC`.
+## 14. Assessment Scope and Assumptions
+- Authentication was explicitly out of scope. A mocked/hardcoded current user ("Your Story") is provided via middleware to satisfy user relation constraints.
+- The mobile client can optionally pass an `x-user-id` header to test actions as different users.
+- The `transactionType` required by the assessment is mapped to the existing `tag` column to adhere to the instruction to avoid rewriting architecture or adding unnecessary columns.
 
-### Mock Current-User Approach
-Authentication is intentionally skipped for this assessment. A mock current-user context is provided via middleware. By default, requests act on behalf of the seeded user "Your Story". You can override the acting user by providing the `x-user-id` header with a valid user UUID.
+## 15. What Was Skipped
+- Authentication and login.
+- Email verification.
+- Payments processing.
+- Real-time WebSockets for live feed/comment updates.
 
-### Intentionally Skipped Functionality
-- Full Authentication / JWT / Email Verification
-- Real-time WebSockets for chat/feed updates
-- File/Image processing and cloud storage (image URLs are accepted directly as strings)
-- Payments/transactions integrations
-- Content moderation systems
-- Redis/Caching layers (kept simple with direct DB queries)
+## 16. Known Limitations
+- Images uploaded to Cloudinary are not actively deleted if a post fails to insert due to an unexpected constraint error in edge cases, though standard try/catch cleanup is implemented.
+- Deleting posts is not currently implemented.
 
----
+## 17. Screenshots / Demo
+[Placeholder for Demo Video URL]
 
-### 1. `GET /posts`
-Fetch a paginated list of feed posts, optionally filtered by category or tag.
+## 18. Technical Decisions
+- **PostgreSQL**: Chosen for strict relational integrity, foreign key constraints, and standard aggregation capabilities.
+- **Raw SQL (`pg`) over ORMs**: Selected to demonstrate SQL competency and minimize overhead, utilizing parameterized queries for security.
+- **Layered Architecture**: Keeps route definitions clean while isolating business logic in services, making the codebase highly testable.
+- **Zod Validation**: Provides strict runtime validation for incoming data, preventing malformed requests from hitting the database layer.
 
-- **Method:** `GET`
-- **Path:** `/api/posts`
-- **Query Parameters:**
-  - `page` (optional): Page number (default: 1)
-  - `limit` (optional): Items per page (default: 5, max: 50)
-  - `category` (optional): `request`, `general`, `property`
-  - `tag` (optional): String tag (e.g., "Looking to Buy")
-- **Example Response (200 OK):**
-  ```json
-  {
-    "success": true,
-    "data": {
-      "posts": [
-        {
-          "id": "uuid",
-          "content": "Looking for an apartment",
-          "category": "request",
-          "author": { "id": "uuid", "name": "Felix Okon" },
-          "likesCount": 5,
-          "isLiked": false
-        }
-      ],
-      "pagination": { "currentPage": 1, "totalPages": 5, "totalItems": 45, "hasNextPage": true }
-    }
-  }
-  ```
-- **Error Cases:**
-  - `400 Bad Request`: Invalid query parameters.
-
-### 2. `POST /posts`
-Create a new post in the feed. Supports image uploads via `multipart/form-data`.
-
-- **Method:** `POST`
-- **Path:** `/api/posts`
-- **Content-Type:** `multipart/form-data`
-- **Form Fields:**
-  - `content` (required): String (min 3 chars).
-  - `category` (optional): `request`, `general`, `property` (default: request).
-  - `transactionType` (optional): String (e.g., "For Sale"). Maps to `tag`.
-  - `tag` (optional): String.
-  - `location` (optional): String.
-  - `mediaUrl` (optional): String (URL). If an `image` file is provided, this field is ignored and overwritten by the Cloudinary upload URL.
-  - `image` (optional): File (JPEG, PNG, WebP up to 5MB).
-- **Example Request:**
-  ```bash
-  curl -X POST http://localhost:5001/api/posts \
-    -F "content=Looking for a 2-bedroom apartment in Yaba." \
-    -F "transactionType=Looking to Rent" \
-    -F "location=Lekki Phase 1, Lagos" \
-    -F "image=@/path/to/image.jpg"
-  ```
-- **Example Response (201 Created):**
-  ```json
-  {
-    "success": true,
-    "data": {
-      "id": "new-uuid",
-      "content": "Looking for a 2-bedroom apartment in Yaba.",
-      "transactionType": "Looking to Rent",
-      "imageUrl": "https://res.cloudinary.com/.../abcd.jpg",
-      "author": { "name": "Your Story" }
-    }
-  }
-  ```
-- **Error Cases:**
-  - `400 Bad Request`: Missing content, invalid image type, file too large.
-
-### 3. `POST /posts/:id/like`
-Toggle the current user's like status on a specific post.
-
-- **Method:** `POST`
-- **Path:** `/api/posts/:id/like`
-- **Path Parameters:**
-  - `id` (required): UUID of the post.
-- **Example Response (200 OK):**
-  ```json
-  {
-    "success": true,
-    "data": {
-      "postId": "uuid",
-      "isLiked": true,
-      "likesCount": 6
-    }
-  }
-  ```
-- **Error Cases:**
-  - `400 Bad Request`: Invalid post UUID format.
-  - `404 Not Found`: Post with the specified ID does not exist.
-
-### 4. `GET /posts/:id/comments`
-Retrieve all comments for a specific post.
-
-- **Method:** `GET`
-- **Path:** `/api/posts/:id/comments`
-- **Path Parameters:**
-  - `id` (required): UUID of the post.
-- **Example Response (200 OK):**
-  ```json
-  {
-    "success": true,
-    "data": {
-      "postId": "uuid",
-      "comments": [
-        {
-          "id": "comment-uuid",
-          "text": "Great post!",
-          "createdAt": "2026-09-01T00:00:00.000Z",
-          "authorName": "Jane Doe"
-        }
-      ]
-    }
-  }
-  ```
-- **Error Cases:**
-  - `400 Bad Request`: Invalid post UUID format.
-  - `404 Not Found`: Post with the specified ID does not exist.
-
-### 5. `POST /posts/:id/comments`
-Add a new comment to a specific post.
-
-- **Method:** `POST`
-- **Path:** `/api/posts/:id/comments`
-- **Path Parameters:**
-  - `id` (required): UUID of the post.
-- **Request Body:**
-  - `text` (required): String (min 1 char).
-- **Example Response (201 Created):**
-  ```json
-  {
-    "success": true,
-    "data": {
-      "id": "new-comment-uuid",
-      "postId": "uuid",
-      "text": "My new comment",
-      "authorName": "Your Story"
-    }
-  }
-  ```
-- **Error Cases:**
-  - `400 Bad Request`: Missing or empty text, invalid post UUID format.
-  - `404 Not Found`: Post with the specified ID does not exist.
-
----
-
-## 📐 Assumptions & Design Decisions
-
-1. **Authentication Scope**: As permitted by the assessment brief, full auth/email verification is mocked using a persistent current user context (supporting optional `x-user-id` header override).
-2. **PostgreSQL Relational Design**: Used strict foreign keys (`ON DELETE CASCADE`) and composite primary keys (`post_id`, `user_id`) on the `likes` table to prevent duplicate likes and race conditions.
-3. **Optimized Aggregation**: Single-query aggregate retrieval using PostgreSQL `json_build_object` and subqueries for like counts, comments count, and latest user avatars to minimize round trips.
+## 19. Assessment Submission
+- **GitHub Repository**: [Placeholder]
+- **Live Backend**: [Placeholder]
+- **Mobile Build**: [Placeholder]
+- **Demo Video**: [Placeholder]
