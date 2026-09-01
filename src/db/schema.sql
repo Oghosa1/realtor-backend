@@ -54,7 +54,7 @@ CREATE TABLE IF NOT EXISTS stories (
 );
 
 -- Indexes for optimal feed querying
-CREATE INDEX IF NOT EXISTS idx_posts_created_at ON posts(created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_posts_created_at_id ON posts(created_at DESC, id DESC);
 CREATE INDEX IF NOT EXISTS idx_posts_category ON posts(category);
 CREATE INDEX IF NOT EXISTS idx_comments_post_id ON comments(post_id, created_at ASC);
 CREATE INDEX IF NOT EXISTS idx_likes_post_id ON likes(post_id);

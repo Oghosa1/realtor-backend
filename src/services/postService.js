@@ -39,9 +39,11 @@ export class PostService {
         p.id,
         p.category,
         p.tag,
+        p.tag as "transactionType",
         p.content,
         p.location,
         p.media_url as "mediaUrl",
+        p.media_url as "imageUrl",
         p.is_video as "isVideo",
         p.video_duration as "videoDuration",
         p.views_count as "viewsCount",
@@ -96,7 +98,7 @@ export class PostService {
       FROM posts p
       JOIN users u ON u.id = p.user_id
       ${whereClause}
-      ORDER BY p.created_at DESC
+      ORDER BY p.created_at DESC, p.id DESC
       LIMIT $${paramIndex + 1} OFFSET $${paramIndex + 2};
     `;
 
@@ -150,9 +152,11 @@ export class PostService {
       id: post.id,
       category: post.category,
       tag: post.tag,
+      transactionType: post.tag,
       content: post.content,
       location: post.location,
       mediaUrl: post.media_url,
+      imageUrl: post.media_url,
       isVideo: post.is_video,
       videoDuration: post.video_duration,
       viewsCount: post.views_count,

@@ -1,4 +1,5 @@
 import { PostService } from "../services/postService.js";
+import { CloudinaryService } from "../services/cloudinaryService.js";
 
 export class PostController {
   /**
@@ -28,21 +29,34 @@ export class PostController {
    * POST /api/posts
    */
   static async createPost(req, res, next) {
+    let uploadedAsset = null;
     try {
       const {
         content,
         category,
         tag,
+        transactionType,
         location,
-        mediaUrl,
+        mediaUrl: reqMediaUrl,
         isVideo,
         videoDuration,
       } = req.body;
+
+      let mediaUrl = reqMediaUrl;
+
+      // Handle image upload if a file is attached
+      if (req.file) {
+        uploadedAsset = await CloudinaryService.uploadImage(req.file.buffer);
+        mediaUrl = uploadedAsset.secure_url;
+      }
+
+      const finalTag = transactionType || tag;
+
       const result = await PostService.createPost({
         userId: req.userId,
         content,
         category,
-        tag,
+        tag: finalTag,
         location,
         mediaUrl,
         isVideo,
@@ -54,6 +68,10 @@ export class PostController {
         data: result,
       });
     } catch (error) {
+      // Clean up orphaned Cloudinary asset if DB insert fails
+      if (uploadedAsset && uploadedAsset.public_id) {
+        await CloudinaryService.deleteImage(uploadedAsset.public_id);
+      }
       return next(error);
     }
   }

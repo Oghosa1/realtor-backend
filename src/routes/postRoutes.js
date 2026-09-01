@@ -2,6 +2,7 @@ import { Router } from "express";
 import { CommentController } from "../controllers/commentController.js";
 import { PostController } from "../controllers/postController.js";
 import { validate } from "../middleware/validate.js";
+import { upload } from "../middleware/upload.js";
 import { createCommentSchema } from "../validators/commentSchemas.js";
 import {
   createPostSchema,
@@ -15,7 +16,11 @@ export const postRouter = Router();
 postRouter
   .route("/")
   .get(validate(getPostsQuerySchema, "query"), PostController.getPosts)
-  .post(validate(createPostSchema, "body"), PostController.createPost);
+  .post(
+    upload.single("image"),
+    validate(createPostSchema, "body"),
+    PostController.createPost,
+  );
 
 postRouter
   .route("/:id/like")

@@ -118,60 +118,168 @@ The server will start on `http://localhost:5001`.
 
 ---
 
-## 📡 API Endpoints & Curl Examples
+## 📡 API Documentation
 
-### Health Check
-```bash
-curl http://localhost:5001/health
-```
+### Pagination Approach
+The `GET /posts` endpoint uses offset-based pagination. It accepts `page` and `limit` query parameters and returns a `pagination` object in the response containing `currentPage`, `totalPages`, `totalItems`, and `hasNextPage`. The results are stably ordered by `created_at DESC, id DESC`.
 
-### 1. Get Feed Posts (Paginated with Category/Tag Filters)
-```bash
-# Fetch page 1 of all posts
-curl http://localhost:5001/api/posts?page=1&limit=10
+### Mock Current-User Approach
+Authentication is intentionally skipped for this assessment. A mock current-user context is provided via middleware. By default, requests act on behalf of the seeded user "Your Story". You can override the acting user by providing the `x-user-id` header with a valid user UUID.
 
-# Filter by category (request, general, property)
-curl http://localhost:5001/api/posts?category=request
+### Intentionally Skipped Functionality
+- Full Authentication / JWT / Email Verification
+- Real-time WebSockets for chat/feed updates
+- File/Image processing and cloud storage (image URLs are accepted directly as strings)
+- Payments/transactions integrations
+- Content moderation systems
+- Redis/Caching layers (kept simple with direct DB queries)
 
-# Filter by tag (Looking to Buy, For Rent, For Sale)
-curl "http://localhost:5001/api/posts?tag=Looking%20to%20Buy"
-```
+---
 
-### 2. Create Post
-```bash
-curl -X POST http://localhost:5001/api/posts \
-  -H "Content-Type: application/json" \
-  -d '{
-    "content": "Looking for a 2-bedroom apartment in Yaba. Moving in next month.",
-    "category": "request",
-    "tag": "Looking to Buy",
-    "location": "Lekki Phase 1, Lagos"
-  }'
-```
+### 1. `GET /posts`
+Fetch a paginated list of feed posts, optionally filtered by category or tag.
 
-### 3. Toggle Like on a Post
-```bash
-curl -X POST http://localhost:5001/api/posts/a1111111-aaaa-aaaa-aaaa-aaaaaaaaaaaa/like \
-  -H "x-user-id: 11111111-1111-1111-1111-111111111111"
-```
+- **Method:** `GET`
+- **Path:** `/api/posts`
+- **Query Parameters:**
+  - `page` (optional): Page number (default: 1)
+  - `limit` (optional): Items per page (default: 5, max: 50)
+  - `category` (optional): `request`, `general`, `property`
+  - `tag` (optional): String tag (e.g., "Looking to Buy")
+- **Example Response (200 OK):**
+  ```json
+  {
+    "success": true,
+    "data": {
+      "posts": [
+        {
+          "id": "uuid",
+          "content": "Looking for an apartment",
+          "category": "request",
+          "author": { "id": "uuid", "name": "Felix Okon" },
+          "likesCount": 5,
+          "isLiked": false
+        }
+      ],
+      "pagination": { "currentPage": 1, "totalPages": 5, "totalItems": 45, "hasNextPage": true }
+    }
+  }
+  ```
+- **Error Cases:**
+  - `400 Bad Request`: Invalid query parameters.
 
-### 4. Get Comments & Add Comment
-```bash
-# Get comments for a post
-curl http://localhost:5001/api/posts/b2222222-bbbb-bbbb-bbbb-bbbbbbbbbbbb/comments
+### 2. `POST /posts`
+Create a new post in the feed. Supports image uploads via `multipart/form-data`.
 
-# Add a comment
-curl -X POST http://localhost:5001/api/posts/b2222222-bbbb-bbbb-bbbb-bbbbbbbbbbbb/comments \
-  -H "Content-Type: application/json" \
-  -d '{
-    "text": "Thanks for the update on Admiralty road!"
-  }'
-```
+- **Method:** `POST`
+- **Path:** `/api/posts`
+- **Content-Type:** `multipart/form-data`
+- **Form Fields:**
+  - `content` (required): String (min 3 chars).
+  - `category` (optional): `request`, `general`, `property` (default: request).
+  - `transactionType` (optional): String (e.g., "For Sale"). Maps to `tag`.
+  - `tag` (optional): String.
+  - `location` (optional): String.
+  - `mediaUrl` (optional): String (URL). If an `image` file is provided, this field is ignored and overwritten by the Cloudinary upload URL.
+  - `image` (optional): File (JPEG, PNG, WebP up to 5MB).
+- **Example Request:**
+  ```bash
+  curl -X POST http://localhost:5001/api/posts \
+    -F "content=Looking for a 2-bedroom apartment in Yaba." \
+    -F "transactionType=Looking to Rent" \
+    -F "location=Lekki Phase 1, Lagos" \
+    -F "image=@/path/to/image.jpg"
+  ```
+- **Example Response (201 Created):**
+  ```json
+  {
+    "success": true,
+    "data": {
+      "id": "new-uuid",
+      "content": "Looking for a 2-bedroom apartment in Yaba.",
+      "transactionType": "Looking to Rent",
+      "imageUrl": "https://res.cloudinary.com/.../abcd.jpg",
+      "author": { "name": "Your Story" }
+    }
+  }
+  ```
+- **Error Cases:**
+  - `400 Bad Request`: Missing content, invalid image type, file too large.
 
-### 5. Get Stories
-```bash
-curl http://localhost:5001/api/stories
-```
+### 3. `POST /posts/:id/like`
+Toggle the current user's like status on a specific post.
+
+- **Method:** `POST`
+- **Path:** `/api/posts/:id/like`
+- **Path Parameters:**
+  - `id` (required): UUID of the post.
+- **Example Response (200 OK):**
+  ```json
+  {
+    "success": true,
+    "data": {
+      "postId": "uuid",
+      "isLiked": true,
+      "likesCount": 6
+    }
+  }
+  ```
+- **Error Cases:**
+  - `400 Bad Request`: Invalid post UUID format.
+  - `404 Not Found`: Post with the specified ID does not exist.
+
+### 4. `GET /posts/:id/comments`
+Retrieve all comments for a specific post.
+
+- **Method:** `GET`
+- **Path:** `/api/posts/:id/comments`
+- **Path Parameters:**
+  - `id` (required): UUID of the post.
+- **Example Response (200 OK):**
+  ```json
+  {
+    "success": true,
+    "data": {
+      "postId": "uuid",
+      "comments": [
+        {
+          "id": "comment-uuid",
+          "text": "Great post!",
+          "createdAt": "2026-09-01T00:00:00.000Z",
+          "authorName": "Jane Doe"
+        }
+      ]
+    }
+  }
+  ```
+- **Error Cases:**
+  - `400 Bad Request`: Invalid post UUID format.
+  - `404 Not Found`: Post with the specified ID does not exist.
+
+### 5. `POST /posts/:id/comments`
+Add a new comment to a specific post.
+
+- **Method:** `POST`
+- **Path:** `/api/posts/:id/comments`
+- **Path Parameters:**
+  - `id` (required): UUID of the post.
+- **Request Body:**
+  - `text` (required): String (min 1 char).
+- **Example Response (201 Created):**
+  ```json
+  {
+    "success": true,
+    "data": {
+      "id": "new-comment-uuid",
+      "postId": "uuid",
+      "text": "My new comment",
+      "authorName": "Your Story"
+    }
+  }
+  ```
+- **Error Cases:**
+  - `400 Bad Request`: Missing or empty text, invalid post UUID format.
+  - `404 Not Found`: Post with the specified ID does not exist.
 
 ---
 

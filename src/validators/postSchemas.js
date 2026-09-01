@@ -27,9 +27,13 @@ export const createPostSchema = z.object({
   content: z.string().min(3, "Content must be at least 3 characters").max(2000),
   category: z.enum(["request", "general", "property"]).default("request"),
   tag: z.string().nullable().optional(),
+  transactionType: z.string().nullable().optional(), // Maps to tag if Option A
   location: z.string().max(200).optional().default("Lekki Phase 1, Lagos"),
   mediaUrl: z.string().url("Must be a valid URL").nullable().optional(),
-  isVideo: z.boolean().optional().default(false),
+  isVideo: z
+    .union([z.boolean(), z.enum(["true", "false"]).transform((v) => v === "true")])
+    .optional()
+    .default(false),
   videoDuration: z.string().nullable().optional(),
 });
 
