@@ -146,7 +146,6 @@ The following environment variables are required (see `.env.example`):
 - **Zod Validation**: Provides strict runtime validation for incoming data, preventing malformed requests from hitting the database layer.
 
 ## 19. Assessment Submission
-- **GitHub Repository**: [Placeholder]
-- **Live Backend**: [Placeholder]
-- **Mobile Build**: [Placeholder]
-- **Demo Video**: [Placeholder]
+- **Mobile Repository**: https://github.com/Oghosa1/Realtor_UI
+- **Live Backend**: https://realtor-backend-service.onrender.com/health
+- **Mobile Build**: https://drive.google.com/file/d/1UBuwp8cdKY6F9_uyLMqqWqbf3J2L3Typ/view?usp=drivesdk
